@@ -4,7 +4,8 @@
 
 ## Stack
 
-Node ≥ 20, Express, sem build. Front em `public/` (JS puro). Estado em um JSON (`data/db.json`, gravação atômica). `data/` e `*.csv` ficam fora do git: têm nome e telefone de pessoas.
+Node ≥ 20, Express, sem build. Front em `public/` (JS puro). Estado em um JSON (`data/db.json`, gravação atômica).
+O processo lê o `db.json` uma vez e mantém em memória: editar o arquivo por fora exige `pm2 stop` antes e `start` depois, senão a mudança não aparece e é sobrescrita no próximo salvamento. `data/` e `*.csv` ficam fora do git: têm nome e telefone de pessoas.
 
 ## Integração com o Loopiee
 
