@@ -69,3 +69,4 @@ dialog::backdrop { background: rgb(0 0 0 / .4); }
 #toast.err { background: var(--danger); color: #fff; }
 .login { max-width: 360px; margin: 15vh auto 0; }
 .two { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+[hidden] { display: none !important; }

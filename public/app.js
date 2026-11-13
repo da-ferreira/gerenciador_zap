@@ -364,10 +364,14 @@ async function tabQuick($tab) {
     <div class="grid">
       <form class="card" id="qs">
         <h3>Enviar um HSM agora</h3>
-        <p class="muted small">Sai na hora pelo canal da campanha. Se o template é de alguma mensagem da campanha que tem imagem, a imagem entra sozinha. Números removidos da campanha são pulados.</p>
+        <p class="muted small">Sai na hora pelo canal da campanha. Ao escolher o template, a imagem dele já vem marcada. Números removidos da campanha são pulados.</p>
         <label>Template<select name="template_id" required>${templateOptions('')}</select></label>
-        <label>Link da imagem<input name="image_url" list="qimgs" placeholder="Vazio = sem imagem"></label>
-        <datalist id="qimgs">${knownImages().map((u) => `<option value="${esc(u)}">`).join('')}</datalist>
+        <label>Imagem<select name="image_pick">
+          <option value="">Sem imagem</option>
+          ${knownImages().map((u) => `<option value="${esc(u)}">${esc(fileOf(u))}</option>`).join('')}
+          <option value="outro">Outro link…</option>
+        </select></label>
+        <label id="qs-other" hidden>Link da imagem<input name="image_other" placeholder="https://…"></label>
         <div class="two">
           <label>Números (um por linha)<textarea name="phones" required placeholder="11999998888"></textarea></label>
           <div class="grid" style="align-content:start">
@@ -385,7 +389,15 @@ async function tabQuick($tab) {
       </div>
     </div>`;
   const form = document.getElementById('qs');
-  form.template_id.onchange = () => { form.image_url.value = images[form.template_id.value] || ''; };
+  const other = document.getElementById('qs-other');
+  form.image_pick.onchange = () => { other.hidden = form.image_pick.value !== 'outro'; };
+  // Vínculo pela mensagem da campanha; sem ele, pelo nome (vgx_cms26_01_x ↔ 01_x.png).
+  form.template_id.onchange = () => {
+    const name = state.templates?.find((t) => String(t.id) === form.template_id.value)?.name || '';
+    form.image_pick.value = images[form.template_id.value]
+      || knownImages().find((u) => name.endsWith(fileOf(u).replace(/\.\w+$/, ''))) || '';
+    form.image_pick.onchange();
+  };
   form.onsubmit = (ev) => {
     ev.preventDefault();
     const fd = new FormData(form);
@@ -395,7 +407,7 @@ async function tabQuick($tab) {
     guard(ev.submitter, async () => {
       const r = await api(`/campaigns/${state.campaign.id}/quick`, {
         method: 'POST',
-        body: { template_id: fd.get('template_id'), template_name: tpl?.name, image_url: fd.get('image_url').trim(), phones: fd.get('phones'), name: fd.get('name'), variables: fd.get('variables').trim() },
+        body: { template_id: fd.get('template_id'), template_name: tpl?.name, image_url: (fd.get('image_pick') === 'outro' ? fd.get('image_other') : fd.get('image_pick')).trim(), phones: fd.get('phones'), name: fd.get('name'), variables: fd.get('variables').trim() },
       });
       toast(`Enviado para ${r.sent}.${r.skipped.length ? ` Pulados: ${r.skipped.map((s) => `${fmtPhone(s.phone)} (${s.reason_label})`).join(', ')}` : ''}`, r.skipped.length > 0);
       reload();
