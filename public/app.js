@@ -217,7 +217,7 @@ async function tabSends($tab) {
       <td>${fmtDate(x.at)}</td>
       <td><button class="link" data-phone="${esc(x.phone)}">${esc(fmtPhone(x.phone))}</button><br><span class="muted small">${esc(x.name)}</span></td>
       <td>${esc(x.title)}${x.template ? `<br><span class="muted small">${esc(x.template)}</span>` : ''}</td>
-      <td><span class="chip ${SEND_STATUS[x.status][1]}">${SEND_STATUS[x.status][0]}</span>${x.code ? `<br><span class="muted small" title="${esc(x.error || '')}">${esc(x.code)} · ${esc(ERROR_CODES[x.code] || x.error || '')}</span>` : ''}</td>
+      <td><span class="chip ${SEND_STATUS[x.status][1]}">${SEND_STATUS[x.status][0]}</span>${x.status_at ? ` <span class="muted small">${fmtDate(x.status_at)}</span>` : ''}${x.code ? `<br><span class="muted small" title="${esc(x.error || '')}">${esc(x.code)} · ${esc(ERROR_CODES[x.code] || x.error || '')}</span>` : ''}</td>
       <td class="small">${esc(x.button || '')}</td>
     </tr>`;
   const filters = [['', 'Todos', data.counts.all], ...Object.entries(SEND_STATUS).map(([k, [l]]) => [k, l, data.counts[k]])];
@@ -229,7 +229,7 @@ async function tabSends($tab) {
       </div>
       <span class="muted small">Retornos de ${fmtDate(state.campaign.synced_at)}. Clique em "Atualizar retornos" para ler de novo. Clique no número para ver só os envios dele.</span>
       ${data.total ? `<div class="card scroll"><table>
-        <thead><tr><th>Quando</th><th>Número</th><th>Mensagem</th><th>Status</th><th>Botão</th></tr></thead>
+        <thead><tr><th>Disparo</th><th>Número</th><th>Mensagem</th><th>Status</th><th>Botão</th></tr></thead>
         <tbody id="srows">${data.rows.map(row).join('')}</tbody></table></div>` : '<p class="muted">Nenhum envio com retorno lido.</p>'}
       ${data.total > data.rows.length ? `<button id="smore">Mostrar mais (${fmtN(data.total - data.rows.length)} restantes)</button>` : ''}
     </div>`;

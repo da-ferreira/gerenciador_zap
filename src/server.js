@@ -208,7 +208,7 @@ app.post('/api/campaigns/:id/sync', wrap(async (req, res) => {
   res.json({ errors: await syncCampaign(db, req.params.id) });
 }));
 
-// Cada linha = uma pessoa em um mailing, do retorno lido por último. Mais recente primeiro.
+// Cada linha = uma pessoa em um mailing, do retorno lido por último. Ordem: disparo mais recente primeiro.
 app.get('/api/campaigns/:id/sends', wrap((req, res) => {
   const db = store.load();
   const c = getOr404(db.campaigns, req.params.id, 'Campanha');
@@ -224,7 +224,7 @@ app.get('/api/campaigns/:id/sends', wrap((req, res) => {
     for (const r of db.syncs[m.mailing_id]?.rows || []) {
       all.push({
         phone: r.phone, name: r.name || names.get(r.phone) || '', title: m.title || 'Envio avulso', template: m.template_name,
-        status: sendStatus(r), at: r.at ? r.at.replace(' ', 'T') + (/[Z+]|-\d\d:\d\d$/.test(r.at) ? '' : '-03:00') : when, code: r.code, error: r.error, button: r.button_reply,
+        status: sendStatus(r), at: when, status_at: r.at ? r.at.replace(' ', 'T') + (/[Z+]|-\d\d:\d\d$/.test(r.at) ? '' : '-03:00') : null, code: r.code, error: r.error, button: r.button_reply,
       });
     }
   }
@@ -232,7 +232,7 @@ app.get('/api/campaigns/:id/sends', wrap((req, res) => {
   const found = all.filter(matchQ);
   const counts = { all: found.length, pending: 0, sent: 0, delivered: 0, read: 0, failed: 0 };
   for (const x of found) counts[x.status]++;
-  const rows = found.filter((x) => !status || x.status === status).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const rows = found.filter((x) => !status || x.status === status).sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || Date.parse(b.status_at || 0) - Date.parse(a.status_at || 0));
   res.json({ counts, total: rows.length, rows: rows.slice(offset, offset + 200) });
 }));
 
