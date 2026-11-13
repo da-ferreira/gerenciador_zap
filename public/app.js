@@ -136,7 +136,10 @@ function tplChips(name) {
 function healthCard() {
   const c = state.campaign;
   if (!c.channel_id) return '';
-  if (state.healthErr) return `<div class="alert">Qualidade do número indisponível: ${esc(state.healthErr)}</div>`;
+  if (state.healthErr) {
+    const why = /404/.test(state.healthErr) ? 'o Loopiee ainda não tem a rota meta-health' : state.healthErr.slice(0, 200);
+    return `<div class="alert">Qualidade do número indisponível: ${esc(why)}.</div>`;
+  }
   const h = state.health;
   if (!h) return '';
   const p = h.phone;
