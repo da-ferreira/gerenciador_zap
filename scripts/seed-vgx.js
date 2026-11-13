@@ -35,7 +35,7 @@ const msgs = [
   ['4 · Quem te espera lá (gerentes)', gerentes, '2026-11-18T09:00', '02_quem_te_espera_la.png'],
   ['5 · Faltam 15 minutos', geral, '2026-11-18T17:15', '04_faltam_15_minutos.png'],
   ['6 · Happy hour', gerentes, '2026-11-18T18:15', '05_happy_hour.png'],
-  ['7 · Agradecimento', geral, '2026-11-23T09:00', null],
+  ['7 · Agradecimento', geral, '2026-11-23T09:00', 'WPP-23-11-quem-ja-cresce-com-a-vgx.png'],
 ];
 for (const [title, base_id, scheduled_at, img] of msgs) {
   db.messages.push({ id: store.newId(), campaign_id: c.id, title, base_id, scheduled_at, image_url: img ? IMG + img : null, template_id: null, template_name: null, variables: null, created_at: store.now() });
