@@ -14,6 +14,7 @@ Só pela API HTTP do `apiLoopiee` (na .101 roda no pm2 como `apiMidiaHub`, porta
 - `GET /multichannel/channel`, `GET /multichannel/channel/:id` (templates em `waba_templates`)
 - `POST /multichannel/mailing/upload` (multipart: `file` .csv `;`, `name`, `channel_id`, `template_id`, `scheduled_at` ISO com fuso). Sem `scheduled_at` dispara na hora: é o envio avulso.
 - O upload **não devolve o id**: o nome do mailing é gerado único e o id é achado por `GET /multichannel/mailing?q=<nome>`.
+- `GET /multichannel/channel/:id/meta-health` → qualidade/status/limite do número e status/qualidade de cada template, lidos na hora na Meta com o token do canal. Template fora de `APPROVED` barra a criação do mailing e o envio avulso; se a rota falhar, não barra.
 - `GET /multichannel/mailing/:id/details` (máx. 1000 por página) → retornos: `button_reply`, `delivery_status`, `delivery_error_code`.
 
 Nenhum acesso direto ao banco do Loopiee.

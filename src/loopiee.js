@@ -44,6 +44,8 @@ async function listTemplates(channelId) {
   return list.map((t) => ({ id: t.template_id, name: t.name }));
 }
 
+const metaHealth = (channelId) => call(`/multichannel/channel/${channelId}/meta-health`);
+
 async function uploadMailing({ name, channelId, templateId, scheduledAt, csv }) {
   const fd = new FormData();
   fd.append('name', name);
@@ -72,4 +74,4 @@ async function mailingDetails(mailingId) {
   return rows;
 }
 
-module.exports = { listChannels, listTemplates, uploadMailing, findMailingId, mailingDetails };
+module.exports = { listChannels, listTemplates, metaHealth, uploadMailing, findMailingId, mailingDetails };

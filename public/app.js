@@ -48,7 +48,7 @@ function openDialog(html, onSubmit) {
 }
 
 // ---------- estado ----------
-const state = { campaign: null, data: null, tab: 'mensagens', templates: null, templatesErr: null };
+const state = { campaign: null, data: null, tab: 'mensagens', templates: null, templatesErr: null, health: null, healthErr: null };
 
 // ---------- login ----------
 function renderLogin() {
@@ -111,9 +111,62 @@ async function loadTemplates() {
   }
 }
 
+async function loadHealth() {
+  if (state.health || !state.campaign.channel_id) return;
+  try {
+    state.health = await api(`/loopiee/channels/${state.campaign.channel_id}/meta-health`);
+    state.healthErr = null;
+  } catch (e) {
+    state.healthErr = e.message;
+  }
+}
+
+const QUALITY = { GREEN: ['Alta', ''], YELLOW: ['Média', 'warn'], RED: ['Baixa', 'danger'] };
+const TIER = { TIER_250: 250, TIER_1K: 1000, TIER_2K: 2000, TIER_10K: 10000, TIER_100K: 100000, TIER_UNLIMITED: Infinity };
+const qualityChip = (q) => (QUALITY[q] ? `<span class="chip ${QUALITY[q][1]}">Qualidade ${QUALITY[q][0]}</span>` : '<span class="chip gray">Qualidade sem nota</span>');
+const tplHealth = (name) => state.health?.templates?.find((t) => t.name === name);
+
+function tplChips(name) {
+  const t = tplHealth(name);
+  if (!t) return '';
+  if (t.status !== 'APPROVED') return `<span class="chip danger">Template ${esc(t.status)} na Meta</span>`;
+  return QUALITY[t.quality] ? qualityChip(t.quality) : '';
+}
+
+function healthCard() {
+  const c = state.campaign;
+  if (!c.channel_id) return '';
+  if (state.healthErr) return `<div class="alert">Qualidade do número indisponível: ${esc(state.healthErr)}</div>`;
+  const h = state.health;
+  if (!h) return '';
+  const p = h.phone;
+  const tier = TIER[p.messaging_limit];
+  const lowLimit = tier && c.limit_24h > tier;
+  const bad = h.templates.filter((t) => t.status !== 'APPROVED').length;
+  return `
+    <div class="card">
+      <div class="row between">
+        <div class="grid" style="gap:2px">
+          <h3>${esc(p.verified_name)} · ${esc(p.display_phone_number)}</h3>
+          <span class="muted small">Lido na Meta às ${fmtDate(h.checked_at)}</span>
+        </div>
+        <button id="health-refresh">Reler</button>
+      </div>
+      <div class="row">
+        ${qualityChip(p.quality_rating)}
+        <span class="chip ${p.status === 'CONNECTED' ? '' : 'danger'}">Número ${esc(p.status)}</span>
+        <span class="chip ${lowLimit ? 'danger' : 'gray'}">Limite ${tier === Infinity ? 'ilimitado' : tier ? fmtN(tier) + ' pessoas/24h' : 'não informado'}</span>
+        ${bad ? `<span class="chip danger">${bad} template(s) fora do ar</span>` : ''}
+      </div>
+      ${lowLimit ? `<div class="alert danger">O limite da Meta (${fmtN(tier)}) é menor que o da campanha (${fmtN(c.limit_24h)}). Ajuste em Configuração.</div>` : ''}
+      ${h.waba_mismatch ? '<div class="alert">O número não pertence à conta (WABA) cadastrada no canal: o status dos templates não pôde ser conferido.</div>' : ''}
+    </div>`;
+}
+
 async function renderCampaign(id, keepTab) {
-  if (!keepTab || state.campaign?.id !== id) { state.templates = null; if (state.campaign?.id !== id) state.tab = 'mensagens'; }
+  if (!keepTab || state.campaign?.id !== id) { state.templates = null; state.health = null; state.healthErr = null; if (state.campaign?.id !== id) state.tab = 'mensagens'; }
   await loadCampaign(id);
+  await loadHealth();
   const c = state.campaign;
   const tabs = [['mensagens', 'Mensagens'], ['bases', 'Bases'], ['removidos', 'Removidos'], ['avulso', 'Envio avulso'], ['config', 'Configuração']];
   $app.innerHTML = `
@@ -130,6 +183,7 @@ async function renderCampaign(id, keepTab) {
         <span class="muted small">${esc(c.channel_name || 'Sem canal')} · limite ${fmtN(c.limit_24h)} pessoas/24h · removidos: ${fmtN(state.data.removed.manual)} à mão, ${fmtN(state.data.removed.optout)} pediram para sair, ${fmtN(state.data.removed.sem_whatsapp)} não entregáveis</span>
       </div>
       ${!c.channel_id ? '<div class="alert">Escolha o canal em Configuração antes de criar mailings.</div>' : ''}
+      ${healthCard()}
       <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${state.tab === k}">${l}</button>`).join('')}</div>
       <div id="tab"></div>
     </div>`;
@@ -139,6 +193,8 @@ async function renderCampaign(id, keepTab) {
     if (r.errors.length) toast(r.errors.join(' | '), true); else toast('Retornos atualizados.');
     renderCampaign(id, true);
   });
+  const $refresh = document.getElementById('health-refresh');
+  if ($refresh) $refresh.onclick = () => { state.health = null; state.healthErr = null; renderCampaign(id, true); };
   const $tab = document.getElementById('tab');
   await ({ mensagens: tabMessages, bases: tabBases, removidos: tabRemovals, avulso: tabQuick, config: tabConfig })[state.tab]($tab);
 }
@@ -187,6 +243,7 @@ async function tabMessages($tab) {
           ${msgNumbers(m)}
           <div class="row small">
             ${m.image_url ? `<span class="thumb">Imagem: ${esc(fileOf(m.image_url))}</span>` : '<span class="thumb">Sem imagem</span>'}
+            ${m.mailing_name ? '' : tplChips(m.template_name)}
             ${m.window_24h != null ? `<span class="chip ${over ? 'danger' : 'gray'}">${fmtN(m.window_24h)} pessoas nas 24h${over ? ` — passa de ${fmtN(campaign.limit_24h)}` : ''}</span>` : ''}
           </div>
           <div class="row">
@@ -211,7 +268,11 @@ function knownImages() {
 function templateOptions(selected) {
   if (state.templatesErr) return `<option value="">Não consegui listar: ${esc(state.templatesErr)}</option>`;
   if (!state.templates) return '<option value="">Escolha o canal da campanha</option>';
-  return '<option value="">Escolha…</option>' + state.templates.map((t) => `<option value="${esc(t.id)}" ${String(t.id) === String(selected) ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+  return '<option value="">Escolha…</option>' + state.templates.map((t) => {
+    const h = tplHealth(t.name);
+    const tag = !h ? '' : h.status !== 'APPROVED' ? ` — ${h.status}` : QUALITY[h.quality] ? ` — qualidade ${QUALITY[h.quality][0].toLowerCase()}` : '';
+    return `<option value="${esc(t.id)}" ${String(t.id) === String(selected) ? 'selected' : ''}>${esc(t.name + tag)}</option>`;
+  }).join('');
 }
 
 async function editMessage(m) {

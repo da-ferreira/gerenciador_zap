@@ -140,6 +140,7 @@ function stats(db, m) {
 // ---------- Loopiee ----------
 app.get('/api/loopiee/channels', wrap(async (req, res) => res.json(await loopiee.listChannels())));
 app.get('/api/loopiee/channels/:id/templates', wrap(async (req, res) => res.json(await loopiee.listTemplates(req.params.id))));
+app.get('/api/loopiee/channels/:id/meta-health', wrap(async (req, res) => res.json(await loopiee.metaHealth(req.params.id))));
 
 // ---------- campanhas ----------
 app.get('/api/campaigns', wrap((req, res) => {
@@ -275,6 +276,14 @@ app.get('/api/messages/:id/csv', wrap((req, res) => {
 }));
 
 const creating = new Set();
+// Template pausado ou rejeitado na Meta não sai: barra antes de criar. Se a Meta não responder, não barra.
+async function assertTemplateUsable(channelId, templateName) {
+  let health;
+  try { health = await loopiee.metaHealth(channelId); } catch { return; }
+  const t = (health.templates || []).find((x) => x.name === templateName);
+  if (t && t.status !== 'APPROVED') throw fail(400, `O template ${templateName} está ${t.status} na Meta.`);
+}
+
 app.post('/api/messages/:id/create', wrap(async (req, res) => {
   const db = store.load();
   const m = getOr404(db.messages, req.params.id, 'Mensagem');
@@ -283,6 +292,7 @@ app.post('/api/messages/:id/create', wrap(async (req, res) => {
   if (creating.has(m.id)) throw fail(409, 'Já está sendo criado.');
   if (!c.channel_id) throw fail(400, 'Escolha o canal da campanha.');
   if (!m.template_id) throw fail(400, 'Escolha o template.');
+  await assertTemplateUsable(c.channel_id, m.template_name);
   if (!m.base_id) throw fail(400, 'Escolha a base.');
   if (!m.scheduled_at) throw fail(400, 'Defina data e hora.');
   if (Date.parse(m.scheduled_at + ':00-03:00') < Date.now()) throw fail(400, 'A data/hora já passou. Ajuste antes de criar.');
@@ -345,6 +355,7 @@ app.post('/api/campaigns/:id/quick', wrap(async (req, res) => {
   if (!c.channel_id) throw fail(400, 'Escolha o canal da campanha.');
   const { template_id, template_name, image_url, variables, name } = req.body;
   if (!template_id) throw fail(400, 'Escolha o template.');
+  await assertTemplateUsable(c.channel_id, template_name);
   if (image_url && !/^https:\/\//.test(image_url)) throw fail(400, 'O link da imagem precisa começar com https://');
 
   const manual = camp.manualSet(db, c.id);
