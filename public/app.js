@@ -18,7 +18,7 @@ function toast(msg, err) {
 }
 
 async function api(path, opts = {}) {
-  const r = await fetch('/api' + path, {
+  const r = await fetch('api' + path, {
     ...opts,
     headers: opts.body ? { 'content-type': 'application/json' } : {},
     body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -191,7 +191,7 @@ async function tabMessages($tab) {
           </div>
           <div class="row">
             ${m.mailing_name ? '' : `<button data-act="edit" data-id="${m.id}">Editar</button><button data-act="preview" data-id="${m.id}">Ver quem sai</button>`}
-            <a class="btn" href="/api/messages/${m.id}/csv">Baixar CSV</a>
+            <a class="btn" href="api/messages/${m.id}/csv">Baixar CSV</a>
             ${m.mailing_name ? '' : `<button class="primary" data-act="create" data-id="${m.id}">Criar no Chat Ativo</button><button class="danger" data-act="del" data-id="${m.id}">Apagar</button>`}
           </div>
         </div>`;
@@ -443,7 +443,7 @@ async function tabConfig($tab) {
 
 // ---------- rotas ----------
 async function route() {
-  const me = await fetch('/api/me').then((r) => r.json()).catch(() => ({}));
+  const me = await fetch('api/me').then((r) => r.json()).catch(() => ({}));
   if (!me.logged) return renderLogin();
   const m = location.hash.match(/^#\/c\/([\w-]+)/);
   try {

@@ -36,3 +36,7 @@ Senha única (`APP_PASSWORD`). Cookie HttpOnly assinado com HMAC (`SESSION_SECRE
 ## Seed da VGX CMS 2026
 
 `npm run seed:vgx -- base-geral.csv gerentes.csv` cria a campanha com as 7 mensagens, os horários e as imagens do S3 (`app-loopiee-1/campanhas/vgx-cms26/`). O canal e os templates são escolhidos na tela.
+
+## Deploy
+
+No ar na .54 em `https://devlp.loopiee.com.br/zap/` (nginx tira o `/zap`, pm2 `gerenciadorZap`, porta 3090). Por isso o front usa só caminhos relativos (`api/...`), sem `/` na frente.
