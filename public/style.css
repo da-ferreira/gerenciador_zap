@@ -70,3 +70,7 @@ dialog::backdrop { background: rgb(0 0 0 / .4); }
 .login { max-width: 360px; margin: 15vh auto 0; }
 .two { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 [hidden] { display: none !important; }
+.loading { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .9rem; padding: 8px 0; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }

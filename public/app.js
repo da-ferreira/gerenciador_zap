@@ -111,14 +111,14 @@ async function loadTemplates() {
   }
 }
 
-async function loadHealth() {
-  if (state.health || !state.campaign.channel_id) return;
-  try {
-    state.health = await api(`/loopiee/channels/${state.campaign.channel_id}/meta-health`);
-    state.healthErr = null;
-  } catch (e) {
-    state.healthErr = e.message;
-  }
+function loadHealth() {
+  if (state.health || !state.campaign.channel_id) return Promise.resolve();
+  const cid = state.campaign.channel_id;
+  state.healthP ||= api(`/loopiee/channels/${cid}/meta-health`)
+    .then((h) => { state.health = h; state.healthErr = null; })
+    .catch((e) => { state.healthErr = e.message; })
+    .finally(() => { state.healthP = null; });
+  return state.healthP;
 }
 
 const QUALITY = { GREEN: ['Alta', ''], YELLOW: ['Média', 'warn'], RED: ['Baixa', 'danger'] };
@@ -133,9 +133,12 @@ function tplChips(name) {
   return QUALITY[t.quality] ? qualityChip(t.quality) : '';
 }
 
+const loadingHtml = (text) => `<div class="loading" role="status"><span class="spinner"></span>${esc(text)}</div>`;
+
 function healthCard() {
   const c = state.campaign;
   if (!c.channel_id) return '';
+  if (!state.health && !state.healthErr) return `<div class="card">${loadingHtml('Lendo a qualidade do número na Meta…')}</div>`;
   if (state.healthErr) {
     const why = /404/.test(state.healthErr) ? 'o Loopiee ainda não tem a rota meta-health' : state.healthErr.slice(0, 200);
     return `<div class="alert">Qualidade do número indisponível: ${esc(why)}.</div>`;
@@ -166,10 +169,23 @@ function healthCard() {
     </div>`;
 }
 
+// A Meta é a parte lenta: a tela abre antes e o cartão se preenche quando ela responder.
+async function showHealth(id) {
+  const $h = document.getElementById('health');
+  if (!$h) return;
+  $h.innerHTML = healthCard();
+  const $refresh = document.getElementById('health-refresh');
+  if ($refresh) $refresh.onclick = () => { state.health = null; state.healthErr = null; showHealth(id); };
+  if (state.health || state.healthErr || !state.campaign.channel_id) return;
+  await loadHealth();
+  if (state.campaign?.id !== id) return;
+  showHealth(id);
+  if (state.tab === 'mensagens') tabMessages(document.getElementById('tab'));
+}
+
 async function renderCampaign(id, keepTab) {
   if (!keepTab || state.campaign?.id !== id) { state.templates = null; state.health = null; state.healthErr = null; if (state.campaign?.id !== id) state.tab = 'mensagens'; }
   await loadCampaign(id);
-  await loadHealth();
   const c = state.campaign;
   const tabs = [['mensagens', 'Mensagens'], ['envios', 'Envios'], ['bases', 'Bases'], ['removidos', 'Removidos'], ['avulso', 'Envio avulso'], ['config', 'Configuração']];
   $app.innerHTML = `
@@ -186,7 +202,7 @@ async function renderCampaign(id, keepTab) {
         <span class="muted small">${esc(c.channel_name || 'Sem canal')} · limite ${fmtN(c.limit_24h)} pessoas/24h · removidos: ${fmtN(state.data.removed.manual)} à mão, ${fmtN(state.data.removed.optout)} pediram para sair, ${fmtN(state.data.removed.sem_whatsapp)} não entregáveis</span>
       </div>
       ${!c.channel_id ? '<div class="alert">Escolha o canal em Configuração antes de criar mailings.</div>' : ''}
-      ${healthCard()}
+      <div id="health">${healthCard()}</div>
       <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${state.tab === k}">${l}</button>`).join('')}</div>
       <div id="tab"></div>
     </div>`;
@@ -196,9 +212,9 @@ async function renderCampaign(id, keepTab) {
     if (r.errors.length) toast(r.errors.join(' | '), true); else toast('Retornos atualizados.');
     renderCampaign(id, true);
   });
-  const $refresh = document.getElementById('health-refresh');
-  if ($refresh) $refresh.onclick = () => { state.health = null; state.healthErr = null; renderCampaign(id, true); };
+  showHealth(id);
   const $tab = document.getElementById('tab');
+  $tab.innerHTML = loadingHtml('Carregando…');
   await ({ mensagens: tabMessages, envios: tabSends, bases: tabBases, removidos: tabRemovals, avulso: tabQuick, config: tabConfig })[state.tab]($tab);
 }
 
@@ -326,7 +342,7 @@ function templateOptions(selected) {
 }
 
 async function editMessage(m) {
-  await loadTemplates();
+  await Promise.all([loadTemplates(), loadHealth()]);
   const v = m || {};
   openDialog(`
     <h2>${m ? 'Editar mensagem' : 'Nova mensagem'}</h2>
@@ -469,7 +485,7 @@ async function tabRemovals($tab) {
 
 // ---------- envio avulso ----------
 async function tabQuick($tab) {
-  await loadTemplates();
+  await Promise.all([loadTemplates(), loadHealth()]);
   const [images, history] = await Promise.all([api(`/campaigns/${state.campaign.id}/template-images`), api(`/campaigns/${state.campaign.id}/quick`)]);
   $tab.innerHTML = `
     <div class="grid">
@@ -570,6 +586,7 @@ async function route() {
   if (!me.logged) return renderLogin();
   const m = location.hash.match(/^#\/c\/([\w-]+)/);
   try {
+    if (m && state.campaign?.id !== m[1]) $app.innerHTML = `<div class="wrap">${loadingHtml('Carregando a campanha…')}</div>`;
     if (m) await renderCampaign(m[1], state.campaign?.id === m[1]);
     else await renderCampaigns();
   } catch (e) {
