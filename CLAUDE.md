@@ -13,9 +13,9 @@ Só pela API HTTP do `apiLoopiee` (na .101 roda no pm2 como `apiMidiaHub`, porta
 - `POST /signin` → token JWT (relogin automático no 401)
 - `GET /multichannel/channel`, `GET /multichannel/channel/:id` (templates em `waba_templates`)
 - `POST /multichannel/mailing/upload` (multipart: `file` .csv `;`, `name`, `channel_id`, `template_id`, `scheduled_at` ISO com fuso). Sem `scheduled_at` dispara na hora: é o envio avulso.
-- O upload **não devolve o id**: o nome do mailing é gerado único e o id é achado por `GET /multichannel/mailing?q=<nome>`.
+- O upload **não devolve o id**: o id é achado por `GET /multichannel/mailing?q=<nome>`. O Loopiee **corta o nome em 50 caracteres**, por isso o nome começa com `zap-<8 primeiros do id>` e é cortado em 50 antes do upload (`mailingName` em `server.js`).
 - `GET /multichannel/channel/:id/meta-health` → qualidade/status/limite do número e status/qualidade de cada template, lidos na hora na Meta com o token do canal. Template fora de `APPROVED` barra a criação do mailing e o envio avulso; se a rota falhar, não barra.
-- `GET /multichannel/mailing/:id/details` (máx. 1000 por página) → retornos: `button_reply`, `delivery_status`, `delivery_error_code`.
+- `GET /multichannel/mailing/:id/details` (máx. 1000 por página) → retornos: `name`, `delivery_status`, `delivery_status_at` (horário de Brasília sem fuso), `delivery_error_code`/`_message`, `button_reply`. A aba Envios lista essas linhas, só do último "Atualizar retornos".
 
 Nenhum acesso direto ao banco do Loopiee.
 
