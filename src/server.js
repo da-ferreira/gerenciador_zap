@@ -88,6 +88,10 @@ function messageView(db, m, win) {
   };
 }
 
+// O Loopiee corta o nome do mailing em 50 caracteres e não devolve o id no upload:
+// o código único vai na frente para sobreviver ao corte e achar o mailing depois.
+const mailingName = (id, ...parts) => [`zap-${id.slice(0, 8)}`, ...parts].join(' · ').slice(0, 50);
+
 async function syncCampaign(db, campaignId) {
   const msgs = [...db.messages, ...(db.quicksends || []).map((q) => Object.assign(q, { title: q.title || 'Envio avulso' }))]
     .filter((m) => m.campaign_id === campaignId && m.mailing_name);
@@ -344,7 +348,7 @@ app.post('/api/messages/:id/create', wrap(async (req, res) => {
       throw fail(409, `A lista mudou desde a prévia: agora são ${included.length}. Confira e confirme de novo.`);
     }
 
-    const name = `${c.name} · ${m.title} · ${m.scheduled_at.replace('T', ' ')} · ${m.id.slice(0, 6)}`;
+    const name = mailingName(m.id, m.title, m.scheduled_at.replace('T', ' '));
     await loopiee.uploadMailing({
       name,
       channelId: c.channel_id,
@@ -412,10 +416,11 @@ app.post('/api/campaigns/:id/quick', wrap(async (req, res) => {
   if (!contacts.length) throw fail(400, skipped.length ? 'Todos os números estão na lista de removidos.' : 'Informe ao menos um número.');
 
   const msg = { image_url: image_url || null, variables: variables || null };
-  const mailingName = `${c.name} · avulso · ${template_name || template_id} · ${new Date().toISOString().slice(0, 19)}`;
-  await loopiee.uploadMailing({ name: mailingName, channelId: c.channel_id, templateId: template_id, csv: camp.toCsv(msg, contacts) });
+  const id = store.newId();
+  const mname = mailingName(id, 'avulso', template_name || template_id);
+  await loopiee.uploadMailing({ name: mname, channelId: c.channel_id, templateId: template_id, csv: camp.toCsv(msg, contacts) });
   db.quicksends ||= [];
-  db.quicksends.push({ id: store.newId(), campaign_id: c.id, template_id, template_name, image_url: msg.image_url, phones: contacts.map((x) => x.phone), mailing_name: mailingName, created_at: store.now() });
+  db.quicksends.push({ id, campaign_id: c.id, template_id, template_name, image_url: msg.image_url, phones: contacts.map((x) => x.phone), mailing_name: mname, created_at: store.now() });
   store.save();
   res.json({ ok: true, sent: contacts.length, skipped });
 }));

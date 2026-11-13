@@ -58,7 +58,7 @@ async function uploadMailing({ name, channelId, templateId, scheduledAt, csv }) 
 
 // O upload não devolve o id: acha pelo nome, que geramos único.
 async function findMailingId(name, channelId) {
-  const q = new URLSearchParams({ q: name, channel_id: String(channelId), perPage: '10', orderBy: 'id', direction: 'desc' });
+  const q = new URLSearchParams({ q: name.split(' · ')[0], channel_id: String(channelId), perPage: '10', orderBy: 'id', direction: 'desc' });
   const r = await call(`/multichannel/mailing?${q}`);
   const m = (r.mailings || []).find((x) => x.name === name);
   return m ? m.id : null;
