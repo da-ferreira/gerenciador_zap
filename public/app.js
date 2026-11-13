@@ -207,6 +207,7 @@ const reload = () => renderCampaign(state.campaign.id, true);
 // ---------- envios ----------
 const SEND_STATUS = { pending: ['Na fila', 'gray'], sent: ['Enviado', 'gray'], delivered: ['Entregue', ''], read: ['Lido', ''], failed: ['Falhou', 'danger'] };
 state.sends = { q: '', status: '' };
+const ERROR_CODES = { 131049: 'Bloqueio de marketing da Meta', 131026: 'Não entregável (sem WhatsApp)', 131047: 'Fora da janela de 24h', 131050: 'Pessoa parou de receber marketing', 132001: 'Template não existe ou não aprovado' };
 
 async function tabSends($tab) {
   const f = state.sends;
@@ -215,8 +216,8 @@ async function tabSends($tab) {
   const row = (x) => `<tr>
       <td>${fmtDate(x.at)}</td>
       <td><button class="link" data-phone="${esc(x.phone)}">${esc(fmtPhone(x.phone))}</button><br><span class="muted small">${esc(x.name)}</span></td>
-      <td>${esc(x.title)}</td>
-      <td><span class="chip ${SEND_STATUS[x.status][1]}">${SEND_STATUS[x.status][0]}</span>${x.code ? `<br><span class="muted small">${esc(x.code)}${x.error ? ' · ' + esc(x.error) : ''}</span>` : ''}</td>
+      <td>${esc(x.title)}${x.template ? `<br><span class="muted small">${esc(x.template)}</span>` : ''}</td>
+      <td><span class="chip ${SEND_STATUS[x.status][1]}">${SEND_STATUS[x.status][0]}</span>${x.code ? `<br><span class="muted small" title="${esc(x.error || '')}">${esc(x.code)} · ${esc(ERROR_CODES[x.code] || x.error || '')}</span>` : ''}</td>
       <td class="small">${esc(x.button || '')}</td>
     </tr>`;
   const filters = [['', 'Todos', data.counts.all], ...Object.entries(SEND_STATUS).map(([k, [l]]) => [k, l, data.counts[k]])];

@@ -224,7 +224,7 @@ app.get('/api/campaigns/:id/sends', wrap((req, res) => {
     for (const r of db.syncs[m.mailing_id]?.rows || []) {
       all.push({
         phone: r.phone, name: r.name || names.get(r.phone) || '', title: m.title || 'Envio avulso', template: m.template_name,
-        status: sendStatus(r), at: r.at || when, code: r.code, error: r.error, button: r.button_reply,
+        status: sendStatus(r), at: r.at ? r.at.replace(' ', 'T') + (/[Z+]|-\d\d:\d\d$/.test(r.at) ? '' : '-03:00') : when, code: r.code, error: r.error, button: r.button_reply,
       });
     }
   }
