@@ -269,6 +269,7 @@ async function tabSends($tab) {
 
 // ---------- mensagens ----------
 function msgStatus(m) {
+  if (m.mailing_name && m.paused) return `<span class="chip danger">Parado${m.mailing_id ? ` · #${m.mailing_id}` : ''}</span>`;
   if (m.mailing_name) return `<span class="chip">Criado no Chat Ativo${m.mailing_id ? ` · #${m.mailing_id}` : ''}</span>`;
   return '<span class="chip gray">Rascunho</span>';
 }
@@ -315,6 +316,8 @@ async function tabMessages($tab) {
           <div class="row">
             ${m.mailing_name ? '' : `<button data-act="edit" data-id="${m.id}">Editar</button><button data-act="preview" data-id="${m.id}">Ver quem sai</button>`}
             <a class="btn" href="api/messages/${m.id}/csv">Baixar CSV</a>
+            ${m.mailing_name && !m.paused ? `<button class="danger" data-act="pause" data-id="${m.id}">Parar disparo</button>` : ''}
+            ${m.mailing_name && m.paused ? `<button data-act="resume" data-id="${m.id}">Retomar</button><button class="danger" data-act="unmail" data-id="${m.id}">Apagar mailing</button>` : ''}
             ${m.mailing_name ? '' : `<button class="primary" data-act="create" data-id="${m.id}">Criar no Chat Ativo</button><button class="danger" data-act="del" data-id="${m.id}">Apagar</button>`}
           </div>
         </div>`;
@@ -323,8 +326,24 @@ async function tabMessages($tab) {
   document.getElementById('add').onclick = () => editMessage(null);
   $tab.querySelectorAll('[data-act]').forEach((b) => (b.onclick = () => {
     const m = messages.find((x) => x.id === b.dataset.id);
-    ({ edit: () => editMessage(m), preview: () => previewMessage(m), create: () => createMailing(m, b), del: () => deleteMessage(m, b) })[b.dataset.act]();
+    ({ edit: () => editMessage(m), preview: () => previewMessage(m), create: () => createMailing(m, b), del: () => deleteMessage(m, b), pause: () => mailingAction(m, b, 'pause'), resume: () => mailingAction(m, b, 'resume'), unmail: () => mailingAction(m, b, 'unmail') })[b.dataset.act]();
   }));
+}
+
+const MAILING_ACTIONS = {
+  pause: ['POST', 'pause', 'Parar o disparo de "%s"? Quem ainda não recebeu fica parado até você retomar.', 'Disparo parado.'],
+  resume: ['POST', 'resume', 'Retomar o disparo de "%s"?', 'Disparo retomado.'],
+  unmail: ['DELETE', 'mailing', 'Apagar o mailing de "%s" no Chat Ativo? Some também o histórico de quem já recebeu e não dá para desfazer. A mensagem volta a rascunho.', 'Mailing apagado. A mensagem voltou a rascunho.'],
+};
+
+function mailingAction(m, btn, act) {
+  const [method, path, ask, done] = MAILING_ACTIONS[act];
+  if (!confirm(ask.replace('%s', m.title))) return;
+  guard(btn, async () => {
+    await api(`/messages/${m.id}/${path}`, { method });
+    toast(done);
+    reload();
+  });
 }
 
 function knownImages() {

@@ -44,6 +44,9 @@ async function listTemplates(channelId) {
   return list.map((t) => ({ id: t.template_id, name: t.name }));
 }
 
+const pauseMailing = (id) => call(`/multichannel/mailing/${id}/pause`, { method: 'POST' });
+const resumeMailing = (id) => call(`/multichannel/mailing/${id}/resume`, { method: 'POST' });
+const deleteMailing = (id) => call(`/multichannel/mailing/${id}`, { method: 'DELETE' });
 const metaHealth = (channelId) => call(`/multichannel/channel/${channelId}/meta-health`);
 
 async function uploadMailing({ name, channelId, templateId, scheduledAt, csv }) {
@@ -74,4 +77,4 @@ async function mailingDetails(mailingId) {
   return rows;
 }
 
-module.exports = { listChannels, listTemplates, metaHealth, uploadMailing, findMailingId, mailingDetails };
+module.exports = { listChannels, listTemplates, metaHealth, pauseMailing, resumeMailing, deleteMailing, uploadMailing, findMailingId, mailingDetails };

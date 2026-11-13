@@ -373,6 +373,47 @@ app.post('/api/messages/:id/create', wrap(async (req, res) => {
   }
 }));
 
+async function createdMailing(db, id) {
+  const m = getOr404(db.messages, id, 'Mensagem');
+  if (!m.mailing_name) throw fail(409, 'Esta mensagem ainda não virou mailing.');
+  if (!m.mailing_id) {
+    const c = db.campaigns.find((x) => x.id === m.campaign_id);
+    m.mailing_id = await loopiee.findMailingId(m.mailing_name, c.channel_id);
+    if (!m.mailing_id) throw fail(502, 'Não achei este mailing no Chat Ativo.');
+  }
+  return m;
+}
+
+app.post('/api/messages/:id/pause', wrap(async (req, res) => {
+  const db = store.load();
+  const m = await createdMailing(db, req.params.id);
+  await loopiee.pauseMailing(m.mailing_id);
+  m.paused = true;
+  store.save();
+  res.json({ ok: true });
+}));
+
+app.post('/api/messages/:id/resume', wrap(async (req, res) => {
+  const db = store.load();
+  const m = await createdMailing(db, req.params.id);
+  await loopiee.resumeMailing(m.mailing_id);
+  m.paused = false;
+  store.save();
+  res.json({ ok: true });
+}));
+
+// Apaga no Chat Ativo (inclusive o histórico de quem já recebeu) e a mensagem volta a rascunho.
+app.delete('/api/messages/:id/mailing', wrap(async (req, res) => {
+  const db = store.load();
+  const m = await createdMailing(db, req.params.id);
+  if (!m.paused) throw fail(409, 'Pare o disparo antes de apagar.');
+  await loopiee.deleteMailing(m.mailing_id);
+  delete db.syncs[m.mailing_id];
+  for (const k of ['mailing_name', 'mailing_id', 'phones', 'created_counts', 'mailing_created_at', 'paused']) delete m[k];
+  store.save();
+  res.json({ ok: true });
+}));
+
 // ---------- envio avulso ----------
 // Imagem padrão de cada template: a da mensagem da campanha que usa esse template.
 app.get('/api/campaigns/:id/template-images', wrap((req, res) => {
