@@ -102,9 +102,11 @@ async function syncCampaign(db, campaignId) {
         at: store.now(),
         rows: rows.map((r) => ({
           phone: camp.normPhone(r.phone),
+          name: r.name || null,
           process_status: r.process_status,
           status: r.delivery_status || null,
           code: r.delivery_error_code ? String(r.delivery_error_code) : null,
+          error: r.delivery_error_message || null,
           at: r.delivery_status_at || null,
           button_reply: r.button_reply || null,
           button_reply_at: r.button_reply_at || null,
@@ -117,6 +119,12 @@ async function syncCampaign(db, campaignId) {
   campaign.synced_at = store.now();
   store.save();
   return errors;
+}
+
+function sendStatus(r) {
+  if (r.process_status === 'fail' || r.status === 'failed') return 'failed';
+  if (r.status === 'read' || r.status === 'delivered' || r.status === 'sent') return r.status;
+  return 'pending';
 }
 
 function stats(db, m) {
@@ -194,6 +202,34 @@ app.post('/api/campaigns/:id/sync', wrap(async (req, res) => {
   const db = store.load();
   getOr404(db.campaigns, req.params.id, 'Campanha');
   res.json({ errors: await syncCampaign(db, req.params.id) });
+}));
+
+// Cada linha = uma pessoa em um mailing, do retorno lido por último. Mais recente primeiro.
+app.get('/api/campaigns/:id/sends', wrap((req, res) => {
+  const db = store.load();
+  const c = getOr404(db.campaigns, req.params.id, 'Campanha');
+  const names = new Map(db.bases.filter((b) => b.campaign_id === c.id).flatMap((b) => b.contacts.map((x) => [x.phone, x.name])));
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const qPhone = camp.normPhone(q);
+  const status = String(req.query.status || '');
+  const offset = Number(req.query.offset) || 0;
+
+  const all = [];
+  for (const m of [...db.messages, ...(db.quicksends || [])].filter((x) => x.campaign_id === c.id && x.mailing_id)) {
+    const when = m.scheduled_at ? m.scheduled_at + ':00-03:00' : m.created_at;
+    for (const r of db.syncs[m.mailing_id]?.rows || []) {
+      all.push({
+        phone: r.phone, name: r.name || names.get(r.phone) || '', title: m.title || 'Envio avulso', template: m.template_name,
+        status: sendStatus(r), at: r.at || when, code: r.code, error: r.error, button: r.button_reply,
+      });
+    }
+  }
+  const matchQ = (x) => !q || (qPhone.length >= 4 && x.phone.includes(qPhone)) || x.name.toLowerCase().includes(q);
+  const found = all.filter(matchQ);
+  const counts = { all: found.length, pending: 0, sent: 0, delivered: 0, read: 0, failed: 0 };
+  for (const x of found) counts[x.status]++;
+  const rows = found.filter((x) => !status || x.status === status).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  res.json({ counts, total: rows.length, rows: rows.slice(offset, offset + 200) });
 }));
 
 // ---------- bases ----------

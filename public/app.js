@@ -171,7 +171,7 @@ async function renderCampaign(id, keepTab) {
   await loadCampaign(id);
   await loadHealth();
   const c = state.campaign;
-  const tabs = [['mensagens', 'Mensagens'], ['bases', 'Bases'], ['removidos', 'Removidos'], ['avulso', 'Envio avulso'], ['config', 'Configuração']];
+  const tabs = [['mensagens', 'Mensagens'], ['envios', 'Envios'], ['bases', 'Bases'], ['removidos', 'Removidos'], ['avulso', 'Envio avulso'], ['config', 'Configuração']];
   $app.innerHTML = `
     <div class="wrap">
       <div class="grid" style="gap:4px">
@@ -199,10 +199,56 @@ async function renderCampaign(id, keepTab) {
   const $refresh = document.getElementById('health-refresh');
   if ($refresh) $refresh.onclick = () => { state.health = null; state.healthErr = null; renderCampaign(id, true); };
   const $tab = document.getElementById('tab');
-  await ({ mensagens: tabMessages, bases: tabBases, removidos: tabRemovals, avulso: tabQuick, config: tabConfig })[state.tab]($tab);
+  await ({ mensagens: tabMessages, envios: tabSends, bases: tabBases, removidos: tabRemovals, avulso: tabQuick, config: tabConfig })[state.tab]($tab);
 }
 
 const reload = () => renderCampaign(state.campaign.id, true);
+
+// ---------- envios ----------
+const SEND_STATUS = { pending: ['Na fila', 'gray'], sent: ['Enviado', 'gray'], delivered: ['Entregue', ''], read: ['Lido', ''], failed: ['Falhou', 'danger'] };
+state.sends = { q: '', status: '' };
+
+async function tabSends($tab) {
+  const f = state.sends;
+  const qs = (offset) => `?q=${encodeURIComponent(f.q)}&status=${f.status}&offset=${offset}`;
+  const data = await api(`/campaigns/${state.campaign.id}/sends${qs(0)}`);
+  const row = (x) => `<tr>
+      <td>${fmtDate(x.at)}</td>
+      <td><button class="link" data-phone="${esc(x.phone)}">${esc(fmtPhone(x.phone))}</button><br><span class="muted small">${esc(x.name)}</span></td>
+      <td>${esc(x.title)}</td>
+      <td><span class="chip ${SEND_STATUS[x.status][1]}">${SEND_STATUS[x.status][0]}</span>${x.code ? `<br><span class="muted small">${esc(x.code)}${x.error ? ' · ' + esc(x.error) : ''}</span>` : ''}</td>
+      <td class="small">${esc(x.button || '')}</td>
+    </tr>`;
+  const filters = [['', 'Todos', data.counts.all], ...Object.entries(SEND_STATUS).map(([k, [l]]) => [k, l, data.counts[k]])];
+  $tab.innerHTML = `
+    <div class="grid">
+      <div class="row">
+        <input id="sq" type="search" placeholder="Buscar por número ou nome" value="${esc(f.q)}" style="max-width:280px">
+        ${filters.map(([k, l, n]) => `<button data-st="${k}" class="${f.status === k ? 'primary' : ''}">${l} (${fmtN(n)})</button>`).join('')}
+      </div>
+      <span class="muted small">Retornos de ${fmtDate(state.campaign.synced_at)}. Clique em "Atualizar retornos" para ler de novo. Clique no número para ver só os envios dele.</span>
+      ${data.total ? `<div class="card scroll"><table>
+        <thead><tr><th>Quando</th><th>Número</th><th>Mensagem</th><th>Status</th><th>Botão</th></tr></thead>
+        <tbody id="srows">${data.rows.map(row).join('')}</tbody></table></div>` : '<p class="muted">Nenhum envio com retorno lido.</p>'}
+      ${data.total > data.rows.length ? `<button id="smore">Mostrar mais (${fmtN(data.total - data.rows.length)} restantes)</button>` : ''}
+    </div>`;
+  const $q = document.getElementById('sq');
+  $q.onkeydown = (ev) => { if (ev.key === 'Enter') { f.q = $q.value.trim(); tabSends($tab); } };
+  $q.onsearch = () => { f.q = $q.value.trim(); tabSends($tab); };
+  $tab.querySelectorAll('[data-st]').forEach((b) => (b.onclick = () => { f.status = b.dataset.st; tabSends($tab); }));
+  const bindPhones = (el) => el.querySelectorAll('[data-phone]').forEach((b) => (b.onclick = () => { f.q = b.dataset.phone; f.status = ''; tabSends($tab); }));
+  bindPhones($tab);
+  let shown = data.rows.length;
+  const $more = document.getElementById('smore');
+  if ($more) $more.onclick = () => guard($more, async () => {
+    const next = await api(`/campaigns/${state.campaign.id}/sends${qs(shown)}`);
+    const $rows = document.getElementById('srows');
+    $rows.insertAdjacentHTML('beforeend', next.rows.map(row).join(''));
+    bindPhones($rows);
+    shown += next.rows.length;
+    if (shown >= next.total) $more.remove(); else $more.textContent = `Mostrar mais (${fmtN(next.total - shown)} restantes)`;
+  });
+}
 
 // ---------- mensagens ----------
 function msgStatus(m) {
