@@ -319,8 +319,12 @@ function mailingDetail(x) {
 }
 
 // ---------- mensagens ----------
+// Todas as linhas já saíram do Loopiee (pelo último retorno lido): não há o que parar.
+const msgDone = (m) => !!(m.stats && m.stats.total && !m.stats.pending);
+
 function msgStatus(m) {
   if (m.mailing_name && m.paused) return `<span class="chip danger">Parado${m.mailing_id ? ` · #${m.mailing_id}` : ''}</span>`;
+  if (m.mailing_name && msgDone(m)) return `<span class="chip">Disparo concluído${m.mailing_id ? ` · #${m.mailing_id}` : ''}</span>`;
   if (m.mailing_name) return `<span class="chip">Criado no Chat Ativo${m.mailing_id ? ` · #${m.mailing_id}` : ''}</span>`;
   return '<span class="chip gray">Rascunho</span>';
 }
@@ -367,7 +371,7 @@ async function tabMessages($tab) {
           <div class="row">
             ${m.mailing_name ? '' : `<button data-act="edit" data-id="${m.id}">Editar</button><button data-act="preview" data-id="${m.id}">Ver quem sai</button>`}
             <a class="btn" href="api/messages/${m.id}/csv">Baixar CSV</a>
-            ${m.mailing_name && !m.paused ? `<button class="danger" data-act="pause" data-id="${m.id}">Parar disparo</button>` : ''}
+            ${m.mailing_name && !m.paused && !msgDone(m) ? `<button class="danger" data-act="pause" data-id="${m.id}">Parar disparo</button>` : ''}
             ${m.mailing_name && m.paused ? `<button data-act="resume" data-id="${m.id}">Retomar</button><button class="danger" data-act="unmail" data-id="${m.id}">Apagar mailing</button>` : ''}
             ${m.mailing_name ? '' : `<button class="primary" data-act="create" data-id="${m.id}">Criar no Chat Ativo</button><button class="danger" data-act="del" data-id="${m.id}">Apagar</button>`}
           </div>
