@@ -276,7 +276,10 @@ async function tabMailings($tab) {
   if (!list.length) { $tab.innerHTML = '<p class="muted">Nenhum mailing criado ainda.</p>'; return; }
   $tab.innerHTML = `
     <div class="grid">
-      <span class="muted small">Retornos de ${fmtDate(state.campaign.synced_at)}. Clique em "Atualizar retornos" para ler de novo. Clique num mailing para ver o detalhe.</span>
+      <div class="row between">
+        <span class="muted small">Retornos de ${fmtDate(state.campaign.synced_at)}. Clique num mailing para ver o detalhe.</span>
+        <button id="msync">Atualizar retornos</button>
+      </div>
       <div class="card scroll"><table>
         <thead><tr><th>Disparo</th><th>Mailing</th><th>Pessoas</th><th>Entregues</th><th>Lidos</th><th>Falharam</th><th>Saíram</th></tr></thead>
         <tbody>${list.map((x, i) => {
@@ -288,6 +291,11 @@ async function tabMailings($tab) {
             <td>${fmtN(s.read)}${pct(s.read, s.total)}</td><td>${fmtN(s.failed)}${pct(s.failed, s.total)}</td><td>${fmtN(s.optout)}</td></tr>`;
         }).join('')}</tbody></table></div>
     </div>`;
+  document.getElementById('msync').onclick = (ev) => guard(ev.target, async () => {
+    const r = await api(`/campaigns/${state.campaign.id}/sync`, { method: 'POST' });
+    if (r.errors.length) toast(r.errors.join(' | '), true); else toast('Retornos atualizados.');
+    reload();
+  });
   $tab.querySelectorAll('tr[data-i]').forEach((tr) => {
     const open = () => mailingDetail(list[tr.dataset.i]);
     tr.onclick = open;
