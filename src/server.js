@@ -236,6 +236,27 @@ app.get('/api/campaigns/:id/sends', wrap((req, res) => {
   res.json({ counts, total: rows.length, rows: rows.slice(offset, offset + 200) });
 }));
 
+// Resumo de cada mailing criado (mensagens e avulsos), do retorno lido por último.
+app.get('/api/campaigns/:id/mailings', wrap((req, res) => {
+  const db = store.load();
+  const c = getOr404(db.campaigns, req.params.id, 'Campanha');
+  const list = [...db.messages, ...(db.quicksends || [])]
+    .filter((m) => m.campaign_id === c.id && m.mailing_name)
+    .map((m) => {
+      const rows = (m.mailing_id && db.syncs[m.mailing_id]?.rows) || [];
+      const errors = {};
+      for (const r of rows) if (r.code) (errors[r.code] ||= { count: 0, message: r.error }).count++;
+      const times = rows.map((r) => r.at).filter(Boolean).sort();
+      return {
+        id: m.id, title: m.title || 'Envio avulso', template: m.template_name, mailing_id: m.mailing_id || null, paused: !!m.paused,
+        at: m.scheduled_at ? m.scheduled_at + ':00-03:00' : m.created_at, synced_at: m.mailing_id ? db.syncs[m.mailing_id]?.at || null : null,
+        first_at: times[0] || null, last_at: times[times.length - 1] || null, stats: stats(db, m), errors,
+      };
+    })
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  res.json(list);
+}));
+
 // ---------- bases ----------
 app.post('/api/campaigns/:id/bases', wrap((req, res) => {
   const db = store.load();

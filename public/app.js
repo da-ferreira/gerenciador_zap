@@ -187,7 +187,7 @@ async function renderCampaign(id, keepTab) {
   if (!keepTab || state.campaign?.id !== id) { state.templates = null; state.health = null; state.healthErr = null; if (state.campaign?.id !== id) state.tab = 'mensagens'; }
   await loadCampaign(id);
   const c = state.campaign;
-  const tabs = [['mensagens', 'Mensagens'], ['envios', 'Envios'], ['bases', 'Bases'], ['removidos', 'Removidos'], ['avulso', 'Envio avulso'], ['config', 'Configuração']];
+  const tabs = [['mensagens', 'Mensagens'], ['mailings', 'Mailings'], ['envios', 'Envios'], ['bases', 'Bases'], ['removidos', 'Removidos'], ['avulso', 'Envio avulso'], ['config', 'Configuração']];
   $app.innerHTML = `
     <div class="wrap">
       <div class="grid" style="gap:4px">
@@ -215,7 +215,7 @@ async function renderCampaign(id, keepTab) {
   showHealth(id);
   const $tab = document.getElementById('tab');
   $tab.innerHTML = loadingHtml('Carregando…');
-  await ({ mensagens: tabMessages, envios: tabSends, bases: tabBases, removidos: tabRemovals, avulso: tabQuick, config: tabConfig })[state.tab]($tab);
+  await ({ mensagens: tabMessages, mailings: tabMailings, envios: tabSends, bases: tabBases, removidos: tabRemovals, avulso: tabQuick, config: tabConfig })[state.tab]($tab);
 }
 
 const reload = () => renderCampaign(state.campaign.id, true);
@@ -223,7 +223,7 @@ const reload = () => renderCampaign(state.campaign.id, true);
 // ---------- envios ----------
 const SEND_STATUS = { pending: ['Na fila', 'gray'], sent: ['Enviado', 'gray'], delivered: ['Entregue', ''], read: ['Lido', ''], failed: ['Falhou', 'danger'] };
 state.sends = { q: '', status: '' };
-const ERROR_CODES = { 131049: 'Bloqueio de marketing da Meta', 131026: 'Não entregável (sem WhatsApp)', 131047: 'Fora da janela de 24h', 131050: 'Pessoa parou de receber marketing', 132001: 'Template não existe ou não aprovado' };
+const ERROR_CODES = { 131049: 'Bloqueio de marketing da Meta', 131026: 'Não entregável (sem WhatsApp)', 130472: 'Experimento da Meta (não recebe marketing)', 131047: 'Fora da janela de 24h', 131050: 'Pessoa parou de receber marketing', 132001: 'Template não existe ou não aprovado' };
 
 async function tabSends($tab) {
   const f = state.sends;
@@ -265,6 +265,57 @@ async function tabSends($tab) {
     shown += next.rows.length;
     if (shown >= next.total) $more.remove(); else $more.textContent = `Mostrar mais (${fmtN(next.total - shown)} restantes)`;
   });
+}
+
+// ---------- mailings ----------
+const pct = (n, t) => (t ? ` <span class="muted small">${Math.round((n / t) * 100)}%</span>` : '');
+const brTime = (s) => (s ? fmtDate(s.replace(' ', 'T') + '-03:00') : '—');
+
+async function tabMailings($tab) {
+  const list = await api(`/campaigns/${state.campaign.id}/mailings`);
+  if (!list.length) { $tab.innerHTML = '<p class="muted">Nenhum mailing criado ainda.</p>'; return; }
+  $tab.innerHTML = `
+    <div class="grid">
+      <span class="muted small">Retornos de ${fmtDate(state.campaign.synced_at)}. Clique em "Atualizar retornos" para ler de novo. Clique num mailing para ver o detalhe.</span>
+      <div class="card scroll"><table>
+        <thead><tr><th>Disparo</th><th>Mailing</th><th>Pessoas</th><th>Entregues</th><th>Lidos</th><th>Falharam</th><th>Saíram</th></tr></thead>
+        <tbody>${list.map((x, i) => {
+          const s = x.stats;
+          return `<tr class="click" data-i="${i}" tabindex="0" style="cursor:pointer">
+            <td>${fmtDate(x.at)}</td>
+            <td>${esc(x.title)}${x.paused ? ' <span class="chip danger">Parado</span>' : ''}<br><span class="muted small">${esc(x.template || '')}${x.mailing_id ? ` · #${x.mailing_id}` : ''}</span></td>
+            <td>${fmtN(s.total)}</td><td>${fmtN(s.delivered + s.read)}${pct(s.delivered + s.read, s.total)}</td>
+            <td>${fmtN(s.read)}${pct(s.read, s.total)}</td><td>${fmtN(s.failed)}${pct(s.failed, s.total)}</td><td>${fmtN(s.optout)}</td></tr>`;
+        }).join('')}</tbody></table></div>
+    </div>`;
+  $tab.querySelectorAll('tr[data-i]').forEach((tr) => {
+    const open = () => mailingDetail(list[tr.dataset.i]);
+    tr.onclick = open;
+    tr.onkeydown = (ev) => { if (ev.key === 'Enter') open(); };
+  });
+}
+
+function mailingDetail(x) {
+  const s = x.stats;
+  const line = (label, n, strong) => `<tr><td>${label}</td><td>${strong ? `<b>${fmtN(n)}</b>` : fmtN(n)}${pct(n, s.total)}</td></tr>`;
+  const errors = Object.entries(x.errors).sort((a, b) => b[1].count - a[1].count);
+  openDialog(`
+    <div class="grid" style="gap:4px"><h2>${esc(x.title)}</h2>
+      <span class="muted small">${esc(x.template || '')}${x.mailing_id ? ` · mailing #${x.mailing_id}` : ''} · disparo ${fmtDate(x.at)}</span>
+      ${x.first_at ? `<span class="muted small">Retornos de ${brTime(x.first_at)} a ${brTime(x.last_at)} · lidos do Loopiee em ${fmtDate(x.synced_at)}</span>` : '<span class="muted small">Sem retorno lido ainda.</span>'}
+    </div>
+    <table><tbody>
+      ${line('Pessoas no mailing', s.total, true)}
+      ${line('Entregues', s.delivered + s.read, true)}
+      ${line('↳ já leram', s.read)}
+      ${line('Enviados, sem confirmação de entrega', s.sent)}
+      ${s.pending ? line('Na fila', s.pending) : ''}
+      ${line('Falharam', s.failed)}
+      ${line('Clicaram em algum botão', s.clicked)}
+      ${line('Pediram para sair', s.optout)}
+    </tbody></table>
+    ${errors.length ? `<h3>Falhas por motivo</h3><table><tbody>${errors.map(([code, e]) => `<tr><td>${esc(code)} · ${esc(ERROR_CODES[code] || e.message || '')}</td><td>${fmtN(e.count)}</td></tr>`).join('')}</tbody></table>` : ''}
+    <div class="row" style="justify-content:flex-end"><button value="cancel" formmethod="dialog">Fechar</button></div>`);
 }
 
 // ---------- mensagens ----------
