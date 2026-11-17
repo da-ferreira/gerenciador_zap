@@ -130,12 +130,25 @@ function tplChips(name) {
   const t = tplHealth(name);
   if (!t) return '';
   if (t.status !== 'APPROVED') return `<span class="chip danger">Template ${esc(t.status)} na Meta</span>`;
-  return QUALITY[t.quality] ? `<span class="chip ${QUALITY[t.quality][1]}">Template: qualidade ${QUALITY[t.quality][0].toLowerCase()}</span>` : '<span class="chip gray">Template sem nota</span>';
+  return QUALITY[t.quality] ? `<span class="chip ${QUALITY[t.quality][1]}">Template: qualidade ${QUALITY[t.quality][0].toLowerCase()}</span>` : '<span class="chip gray">Template: qualidade pendente</span>';
 }
 
 const loadingHtml = (text) => `<div class="loading" role="status"><span class="spinner"></span>${esc(text)}</div>`;
 
 const campaignTemplates = () => [...new Set((state.data?.messages || []).map((m) => m.template_name).filter(Boolean))];
+
+// Lista compacta: tira o prefixo comum (ex.: vgx_cms26_) para caber no celular.
+function templatesList() {
+  const names = campaignTemplates();
+  if (!names.length) return '';
+  let pre = names.reduce((a, n) => { while (!n.startsWith(a)) a = a.slice(0, -1); return a; });
+  pre = names.length > 1 ? pre.slice(0, pre.lastIndexOf('_') + 1) : '';
+  const label = (t) => !t ? ['—', 'gray'] : t.status !== 'APPROVED' ? [t.status, 'danger'] : QUALITY[t.quality] ? [QUALITY[t.quality][0], QUALITY[t.quality][1]] : ['Pendente', 'gray'];
+  return `<div class="tpl-list">
+    <span class="muted small">Qualidade dos templates${pre ? ` (${esc(pre)}…)` : ''}</span>
+    ${names.map((n) => { const [txt, cls] = label(tplHealth(n)); return `<div class="tpl-row"><span class="tpl-name" title="${esc(n)}">${esc(n.slice(pre.length))}</span><span class="chip ${cls}">${esc(txt)}</span></div>`; }).join('')}
+  </div>`;
+}
 
 function healthCard() {
   const c = state.campaign;
@@ -153,8 +166,8 @@ function healthCard() {
   const bad = h.templates.filter((t) => t.status !== 'APPROVED').length;
   return `
     <div class="card">
-      <div class="row between">
-        <div class="grid" style="gap:2px">
+      <div class="row between" style="flex-wrap:nowrap;align-items:flex-start">
+        <div class="grid" style="gap:2px;min-width:0">
           <h3>${esc(p.verified_name)} · ${esc(p.display_phone_number)}</h3>
           <span class="muted small">Lido na Meta às ${fmtDate(h.checked_at)}</span>
         </div>
@@ -166,7 +179,7 @@ function healthCard() {
         <span class="chip ${lowLimit ? 'danger' : 'gray'}">Limite ${tier === Infinity ? 'ilimitado' : tier ? fmtN(tier) + ' pessoas/24h' : 'não informado'}</span>
         ${bad ? `<span class="chip danger">${bad} template(s) fora do ar</span>` : ''}
       </div>
-      ${campaignTemplates().length ? `<div class="grid small" style="gap:4px">${campaignTemplates().map((n) => `<div class="row"><span class="muted">${esc(n)}</span>${tplChips(n)}</div>`).join('')}</div>` : ''}
+      ${templatesList()}
       ${lowLimit ? `<div class="alert danger">O limite da Meta (${fmtN(tier)}) é menor que o da campanha (${fmtN(c.limit_24h)}). Ajuste em Configuração.</div>` : ''}
       ${h.waba_mismatch ? '<div class="alert">O número não pertence à conta (WABA) cadastrada no canal: o status dos templates não pôde ser conferido.</div>' : ''}
     </div>`;
