@@ -2,11 +2,12 @@
 
 const CODE_SEM_WHATSAPP = '131026';
 const CODE_LIMITE_MARKETING = '131049';
+const CODE_PAROU_MARKETING = '131050';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const REASONS = {
   manual: 'Removido à mão',
-  optout: 'Pediu para sair',
+  optout: 'Pediu para sair (botão ou 131050)',
   sem_whatsapp: 'Não entregável (131026)',
   marketing: 'Bloqueio de marketing (131049) no envio anterior',
 };
@@ -78,6 +79,8 @@ function feedback(db, campaignId) {
   for (const msg of sources) {
     for (const row of db.syncs[msg.mailing_id]?.rows || []) {
       if (row.button_reply && normText(row.button_reply) === optoutText) optout.set(row.phone, { message_id: msg.id, at: row.button_reply_at });
+      // 131050: a pessoa desligou o marketing da empresa no próprio WhatsApp — vale como pedido de saída.
+      if (row.code === CODE_PAROU_MARKETING && !optout.has(row.phone)) optout.set(row.phone, { message_id: msg.id, at: row.at });
       if (row.code === CODE_SEM_WHATSAPP) semWhatsapp.set(row.phone, { message_id: msg.id, at: row.at });
     }
   }

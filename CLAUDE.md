@@ -24,6 +24,7 @@ Nenhum acesso direto ao banco do Loopiee.
 Telefone interno = DDD + número, sem o 55. Ao criar um mailing, o sistema primeiro relê os retornos de todos os mailings da campanha. Tira:
 - remoção manual (tabela `removals`, desfazível);
 - quem clicou no botão com o texto `optout_text` da campanha (padrão "Parar de receber"), em qualquer mailing da campanha, inclusive avulso;
+- `131050` (desligou o marketing da empresa no próprio WhatsApp): conta como quem pediu para sair, para sempre;
 - `131026` (não entregável / sem WhatsApp): sai para sempre;
 - `131049` (limite de marketing da Meta): sai **só do envio seguinte** que a base dele teria recebido, e volta depois.
 
