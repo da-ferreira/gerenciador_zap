@@ -130,10 +130,12 @@ function tplChips(name) {
   const t = tplHealth(name);
   if (!t) return '';
   if (t.status !== 'APPROVED') return `<span class="chip danger">Template ${esc(t.status)} na Meta</span>`;
-  return QUALITY[t.quality] ? qualityChip(t.quality) : '';
+  return QUALITY[t.quality] ? `<span class="chip ${QUALITY[t.quality][1]}">Template: qualidade ${QUALITY[t.quality][0].toLowerCase()}</span>` : '<span class="chip gray">Template sem nota</span>';
 }
 
 const loadingHtml = (text) => `<div class="loading" role="status"><span class="spinner"></span>${esc(text)}</div>`;
+
+const campaignTemplates = () => [...new Set((state.data?.messages || []).map((m) => m.template_name).filter(Boolean))];
 
 function healthCard() {
   const c = state.campaign;
@@ -164,6 +166,7 @@ function healthCard() {
         <span class="chip ${lowLimit ? 'danger' : 'gray'}">Limite ${tier === Infinity ? 'ilimitado' : tier ? fmtN(tier) + ' pessoas/24h' : 'não informado'}</span>
         ${bad ? `<span class="chip danger">${bad} template(s) fora do ar</span>` : ''}
       </div>
+      ${campaignTemplates().length ? `<div class="grid small" style="gap:4px">${campaignTemplates().map((n) => `<div class="row"><span class="muted">${esc(n)}</span>${tplChips(n)}</div>`).join('')}</div>` : ''}
       ${lowLimit ? `<div class="alert danger">O limite da Meta (${fmtN(tier)}) é menor que o da campanha (${fmtN(c.limit_24h)}). Ajuste em Configuração.</div>` : ''}
       ${h.waba_mismatch ? '<div class="alert">O número não pertence à conta (WABA) cadastrada no canal: o status dos templates não pôde ser conferido.</div>' : ''}
     </div>`;
@@ -373,7 +376,7 @@ async function tabMessages($tab) {
           ${msgNumbers(m)}
           <div class="row small">
             ${m.image_url ? `<span class="thumb">Imagem: ${esc(fileOf(m.image_url))}</span>` : '<span class="thumb">Sem imagem</span>'}
-            ${m.mailing_name ? '' : tplChips(m.template_name)}
+            ${tplChips(m.template_name)}
             ${m.window_24h != null ? `<span class="chip ${over ? 'danger' : 'gray'}">${fmtN(m.window_24h)} pessoas nas 24h${over ? ` — passa de ${fmtN(campaign.limit_24h)}` : ''}</span>` : ''}
           </div>
           <div class="row">
