@@ -10,6 +10,7 @@ const REASONS = {
   optout: 'Pediu para sair (botão ou 131050)',
   sem_whatsapp: 'Não entregável (131026)',
   marketing: 'Bloqueio de marketing (131049) no envio anterior',
+  nao_leu: 'Não leu nenhuma mensagem',
 };
 
 function normPhone(value) {
@@ -109,12 +110,22 @@ function lastCodeBefore(db, msg) {
   return last;
 }
 
+// Quem leu ao menos uma mensagem já disparada na campanha (mailings e avulsos).
+function readers(db, campaignId) {
+  const set = new Set();
+  for (const m of [...db.messages, ...(db.quicksends || [])].filter((x) => x.campaign_id === campaignId && x.mailing_id)) {
+    for (const r of db.syncs[m.mailing_id]?.rows || []) if (r.status === 'read') set.add(r.phone);
+  }
+  return set;
+}
+
 function build(db, msg) {
   const base = db.bases.find((b) => b.id === msg.base_id);
   if (!base) return { included: [], excluded: [], counts: { base: 0, included: 0 } };
   const manual = manualSet(db, msg.campaign_id);
   const { optout, semWhatsapp } = feedback(db, msg.campaign_id);
   const last = lastCodeBefore(db, msg);
+  const read = msg.only_engaged ? readers(db, msg.campaign_id) : null;
 
   const included = [];
   const excluded = [];
@@ -124,10 +135,23 @@ function build(db, msg) {
     else if (optout.has(c.phone)) reason = 'optout';
     else if (semWhatsapp.has(c.phone)) reason = 'sem_whatsapp';
     else if (last.get(c.phone) === CODE_LIMITE_MARKETING) reason = 'marketing';
+    else if (read && !read.has(c.phone)) reason = 'nao_leu';
     if (reason) excluded.push({ ...c, reason });
     else included.push(c);
   }
-  const counts = { base: base.contacts.length, included: included.length };
+  // "Sempre incluir" da campanha entra no fim, passando por cima de qualquer filtro.
+  const inSet = new Set(included.map((c) => c.phone));
+  let forced = 0;
+  for (const f of db.campaigns.find((c) => c.id === msg.campaign_id)?.always_include || []) {
+    if (inSet.has(f.phone)) continue;
+    inSet.add(f.phone);
+    included.push(f);
+    forced++;
+  }
+  const out = excluded.filter((e) => !inSet.has(e.phone));
+  excluded.length = 0;
+  excluded.push(...out);
+  const counts = { base: base.contacts.length, included: included.length, out: excluded.length, forced };
   for (const k of Object.keys(REASONS)) counts[k] = excluded.filter((e) => e.reason === k).length;
   return { included, excluded, counts };
 }

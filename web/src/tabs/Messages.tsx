@@ -47,8 +47,9 @@ function MsgNumbers({ m }: { m: Message }) {
   return (
     <Nums>
       <span>{fmtN(p.base)} na base</span>
-      <span>{fmtN(p.base - p.included)} saem</span>
+      <span>{fmtN(p.out ?? p.base - p.included)} saem</span>
       <b className="font-semibold">{fmtN(p.included)} vão receber</b>
+      {m.only_engaged && <Tag>Só quem leu</Tag>}
     </Nums>
   )
 }
@@ -214,6 +215,7 @@ function EditMessage({ m, onClose }: { m: Message | null; onClose: () => void })
     template_id: m?.template_id != null ? String(m.template_id) : '',
     image_url: m?.image_url ?? '',
     variables: m?.variables ?? '',
+    only_engaged: m?.only_engaged ? '1' : '',
   })
   const [missing, setMissing] = useState(false)
   const set = (k: keyof typeof v) => (value: string) => setV((s) => ({ ...s, [k]: value }))
@@ -235,7 +237,7 @@ function EditMessage({ m, onClose }: { m: Message | null; onClose: () => void })
           throw new Error('Escolha a base.')
         }
         const tpl = templates?.find((t) => String(t.id) === v.template_id)
-        const body = { ...v, template_name: tpl?.name || m?.template_name || '', image_url: v.image_url.trim(), variables: v.variables.trim() }
+        const body = { ...v, template_name: tpl?.name || m?.template_name || '', image_url: v.image_url.trim(), variables: v.variables.trim(), only_engaged: v.only_engaged === '1' }
         if (m) await api(`/messages/${m.id}`, { method: 'PUT', body })
         else await api(`/campaigns/${data.campaign.id}/messages`, { method: 'POST', body })
         toast('Mensagem salva.')
@@ -260,6 +262,17 @@ function EditMessage({ m, onClose }: { m: Message | null; onClose: () => void })
           <Input id="m-when" type="datetime-local" required value={v.scheduled_at} onChange={(e) => set('scheduled_at')(e.target.value)} />
         </Field>
       </div>
+      <Field label="Quem recebe">
+        <Select
+          aria-label="Quem recebe"
+          value={v.only_engaged}
+          onChange={set('only_engaged')}
+          options={[
+            { value: '', label: 'Toda a base (menos quem saiu)' },
+            { value: '1', label: 'Só quem leu alguma mensagem da campanha' },
+          ]}
+        />
+      </Field>
       <Field label="Template">
         <Select aria-label="Template" placeholder={tplPlaceholder} value={v.template_id} onChange={set('template_id')} options={templateOptions(templates, health)} />
       </Field>
@@ -291,6 +304,8 @@ function PreviewMessage({ m, p, onClose }: { m: Message; p: Preview; onClose: ()
         <span>{fmtN(c.optout)} pediram para sair</span>
         <span>{fmtN(c.sem_whatsapp)} não entregáveis</span>
         <span>{fmtN(c.marketing)} bloqueio de marketing</span>
+        {c.nao_leu > 0 && <span>{fmtN(c.nao_leu)} não leram nenhuma</span>}
+        {c.forced > 0 && <span>{fmtN(c.forced)} do "sempre incluir" entraram</span>}
       </Nums>
       {p.excluded.length ? (
         <div className="max-h-[50vh] overflow-y-auto">
@@ -339,7 +354,8 @@ function CreateMailing({ m, p, onClose }: { m: Message; p: Preview; onClose: () 
       </div>
       <Nums>
         <span>{fmtN(c.base)} na base</span>
-        <span>{fmtN(c.base - c.included)} saem</span>
+        <span>{fmtN(c.out)} saem</span>
+        {c.forced > 0 && <span>+{fmtN(c.forced)} do "sempre incluir"</span>}
         <b className="font-semibold">{fmtN(c.included)} vão receber</b>
       </Nums>
       <Muted>

@@ -281,10 +281,11 @@ app.delete('/api/bases/:id', wrap((req, res) => {
 }));
 
 // ---------- mensagens ----------
-const MSG_FIELDS = ['title', 'base_id', 'template_id', 'template_name', 'scheduled_at', 'image_url', 'variables'];
+const MSG_FIELDS = ['title', 'base_id', 'template_id', 'template_name', 'scheduled_at', 'image_url', 'variables', 'only_engaged'];
 
 function applyMessage(m, body) {
   for (const k of MSG_FIELDS) if (body[k] !== undefined) m[k] = body[k] === '' ? null : body[k];
+  if (body.only_engaged !== undefined) m.only_engaged = !!body.only_engaged;
   if (m.scheduled_at && !DATE_RE.test(m.scheduled_at)) throw fail(400, 'Data/hora inválida.');
   if (m.image_url && !/^https:\/\//.test(m.image_url)) throw fail(400, 'O link da imagem precisa começar com https://');
 }

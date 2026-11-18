@@ -49,12 +49,13 @@ export type Message = {
   template_name: string
   image_url: string
   variables: string
+  only_engaged?: boolean
   mailing_name?: string
   mailing_id?: number
   paused?: boolean
   stats?: Stats
   created_counts?: { included: number }
-  preview?: { base: number; included: number }
+  preview?: { base: number; included: number; out?: number }
   window_24h?: number | null
 }
 
@@ -94,7 +95,7 @@ export type Health = {
 }
 
 export type Preview = {
-  counts: { base: number; included: number; manual: number; optout: number; sem_whatsapp: number; marketing: number }
+  counts: { base: number; included: number; out: number; forced: number; manual: number; optout: number; sem_whatsapp: number; marketing: number; nao_leu: number }
   excluded: { name: string; phone: string; reason_label: string }[]
   sample: { csv: string }[]
 }
