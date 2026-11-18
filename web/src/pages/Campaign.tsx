@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
-import { Alert, ErrorState, Loading, Muted, useBusy } from '../components/kit'
+import { Alert, ErrorState, Loading, Muted } from '../components/kit'
+import { useBusy } from '../lib/hooks'
 import { api, type CampaignData, type Health, type Template } from '../lib/api'
 import { Ctx, syncReturns, type CampaignCtx } from '../lib/campaign'
 import { toast } from '../lib/feedback'
@@ -50,8 +51,15 @@ export function CampaignPage({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => {
-    reload()
-  }, [reload])
+    let alive = true
+    api<CampaignData>(`/campaigns/${id}`).then(
+      (d) => alive && (setData(d), setVersion((v) => v + 1)),
+      (e: Error) => alive && setError(e.message),
+    )
+    return () => {
+      alive = false
+    }
+  }, [id])
 
   // The Meta is the slow part: the page opens first and the card fills in when it answers.
   useEffect(() => {
@@ -67,12 +75,14 @@ export function CampaignPage({ id }: { id: string }) {
   }, [channelId, health, healthErr])
 
   // A new channel invalidates what was read for the old one.
-  useEffect(() => {
+  const [seenChannel, setSeenChannel] = useState(channelId)
+  if (seenChannel !== channelId) {
+    setSeenChannel(channelId)
     setHealth(null)
     setHealthErr(null)
     setTemplates(null)
     setTemplatesErr(null)
-  }, [channelId])
+  }
 
   const loadTemplates = useCallback(() => {
     if (templates || !channelId) return

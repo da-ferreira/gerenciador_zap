@@ -4,7 +4,8 @@ import { ThemeToggle } from '../components/ThemeToggle'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Skeleton } from '../components/ui/Skeleton'
-import { ErrorState, Field, FormModal, Muted, useLoad } from '../components/kit'
+import { ErrorState, Field, FormModal, Muted } from '../components/kit'
+import { useLoad } from '../lib/hooks'
 import { api, type CampaignListItem } from '../lib/api'
 
 export function Campaigns({ onLogout }: { onLogout: () => void }) {
