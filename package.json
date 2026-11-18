@@ -7,9 +7,12 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "seed:vgx": "node scripts/seed-vgx.js"
+    "seed:vgx": "node scripts/seed-vgx.js",
+    "build": "npm --prefix web ci && npm --prefix web run build"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.21.2"

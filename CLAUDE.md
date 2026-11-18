@@ -4,7 +4,7 @@
 
 ## Stack
 
-Node ≥ 20, Express, sem build. Front em `public/` (JS puro). Estado em um JSON (`data/db.json`, gravação atômica).
+Node ≥ 20, Express. Front em `web/` (Vite + React + TS + Tailwind 4, peças da lib `@davidalmeida/ui` copiadas em `web/src/components/ui`); `npm run build` gera `public/`, que o Express serve e **vai no git** (o servidor não builda). Dev: backend `npm run dev` (3090) + `npm --prefix web run dev` (proxy de `/api`). Tema claro/escuro/sistema no `localStorage` `zap-theme`. Estado em um JSON (`data/db.json`, gravação atômica).
 O processo lê o `db.json` uma vez e mantém em memória: editar o arquivo por fora exige `pm2 stop` antes e `start` depois, senão a mudança não aparece e é sobrescrita no próximo salvamento. `data/` e `*.csv` ficam fora do git: têm nome e telefone de pessoas.
 
 ## Integração com o Loopiee

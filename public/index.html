@@ -1,16 +1,23 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gerenciador Zap</title>
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div id="app"></div>
-<dialog id="dlg"><form method="dialog" id="dlg-body"></form></dialog>
-<div id="toast" role="status" aria-live="polite"></div>
-<script src="app.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gerenciador Zap</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <script>
+      // Before the first paint, so the page doesn't flash light. ThemeToggle takes over after.
+      let t = null
+      try { t = localStorage.getItem('zap-theme') } catch {}
+      document.documentElement.classList.toggle('dark', t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches))
+    </script>
+    <script type="module" crossorigin src="./assets/index-hRil6swX.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DBBcknyF.css">
+  </head>
+  <body class="bg-surface text-ink antialiased">
+    <div id="root"></div>
+  </body>
 </html>
