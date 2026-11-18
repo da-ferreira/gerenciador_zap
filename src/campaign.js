@@ -142,7 +142,8 @@ function build(db, msg) {
   // "Sempre incluir" da campanha entra no fim, passando por cima de qualquer filtro.
   const inSet = new Set(included.map((c) => c.phone));
   let forced = 0;
-  for (const f of db.campaigns.find((c) => c.id === msg.campaign_id)?.always_include || []) {
+  // skip_always_include: mensagens de teste (só o número de quem testa).
+  for (const f of msg.skip_always_include ? [] : db.campaigns.find((c) => c.id === msg.campaign_id)?.always_include || []) {
     if (inSet.has(f.phone)) continue;
     inSet.add(f.phone);
     included.push(f);

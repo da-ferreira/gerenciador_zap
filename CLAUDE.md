@@ -29,7 +29,7 @@ Telefone interno = DDD + número, sem o 55. Ao criar um mailing, o sistema prime
 - `131049` (limite de marketing da Meta): sai **só do envio seguinte** que a base dele teria recebido, e volta depois.
 - mensagem com `only_engaged` ("Só quem leu alguma mensagem"): tira quem não leu nenhum mailing/avulso já disparado da campanha.
 
-Depois dos filtros, a lista `always_include` da campanha (`[{name, phone}]`, sem UI — editar o `db.json`) entra no fim, passando por cima de qualquer regra.
+Depois dos filtros, a lista `always_include` da campanha (`[{name, phone}]`, sem UI — editar o `db.json`) entra no fim, passando por cima de qualquer regra (menos em mensagem com `skip_always_include`, usada nos testes).
 
 A prévia confere com a criação via `expected`: se a lista mudou entre a prévia e o clique, a criação é recusada.
 
